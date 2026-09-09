@@ -2,6 +2,10 @@
 #include <uart.hpp>
 #include <utils.hpp>
 
+extern "C" void enable_irqs();
+
+extern "C" void disable_irqs();
+
 extern "C" void signal()
 {
 }
