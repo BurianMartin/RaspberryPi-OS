@@ -7,16 +7,10 @@ MCPU := -mcpu=arm1176jzf-s -marm
 CXXFLAGS := $(MCPU) -ffreestanding -fno-exceptions -fno-rtti -std=c++17 -Wall -Wextra -nostdlib -O2
 
 .PHONY: hello_boot_test hello_boot_img clean
-
-# QEMU-verified: boots the ELF directly under qemu-system-arm's raspi0
-# machine and checks UART output. See hello_boot/check_boot.sh for why
-# the ELF, not the flattened .img, is what gets used here.
+ 
 hello_boot_test: build/hello_boot.elf
 	bash hello_boot/check_boot.sh
-
-# What actually goes on a real SD card's kernel.img -- a flat binary,
-# not an ELF. The Pi's firmware loader has no ELF parser; it just copies
-# this file's bytes to 0x8000 and jumps there.
+ 
 hello_boot_img: build/hello_boot.img
 
 build/hello_boot.img: build/hello_boot.elf

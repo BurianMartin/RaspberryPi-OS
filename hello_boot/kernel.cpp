@@ -40,6 +40,8 @@ constexpr uint32_t UART0_LCRH = UART0_BASE + 0x2C; // line control: word length,
 constexpr uint32_t UART0_CR = UART0_BASE + 0x30;   // control: UART/TX/RX enable bits
 constexpr uint32_t UART0_ICR = UART0_BASE + 0x44;  // interrupt clear register
 
+constexpr uint32_t mask_bit5 = 0b100000;
+
 namespace
 {
     inline volatile uint32_t &reg(uint32_t addr)
@@ -59,7 +61,6 @@ namespace
 //    clock, and was what this exercise was validated with); set LCRH
 //    for 8 data bits, no parity, one stop bit, FIFO enabled; finally
 //    enable the UART itself plus TX and RX in CR.
-//
 //    Note found while validating this exercise: QEMU's PL011 model
 //    doesn't seem to enforce any of the real hardware's transmit
 //    backpressure/FIFO-full behavior -- it happily accepted writes with
@@ -67,18 +68,64 @@ namespace
 //    be so forgiving. Implement the TX-ready check in uart_putc() below
 //    anyway; it's the correct, portable thing to do regardless of what
 //    QEMU tolerates.
-//
+
+void uart_init()
+{
+    reg(UART0_CR) = 0;
+    reg(UART0_ICR) = 0x7FF;
+    reg(UART0_IBRD) = 1;
+    reg(UART0_FBRD) = 40;
+    reg(UART0_LCRH) = 0x70;
+    reg(UART0_CR) = 0x301;
+}
+
 // 2. uart_putc(char c) / uart_puts(const char *s): poll UART0_FR's
 //    TXFF bit (bit 5 -- sender's transmit register/FIFO full) until
 //    it's clear, then write the byte to UART0_DR. uart_puts just calls
 //    uart_putc for every character up to the null terminator.
-//
+
+void uart_putc_poll(char c)
+{
+    while ((reg(UART0_FR) & mask_bit5) != 0x0)
+        ;
+    reg(UART0_DR) = c;
+}
+
+bool uart_putc_try(char c)
+{
+    if ((reg(UART0_FR) & mask_bit5) != 0x0)
+    {
+        reg(UART0_DR) = c;
+        return true;
+    }
+    return false;
+}
+
+void uart_puts(const char *s)
+{
+    while (*s)
+    {
+        uart_putc_poll(*s++);
+    }
+}
+
 // 3. led_init(): configure GPIO47 as an output. GPFSEL4 packs 10 pins'
 //    worth of 3-bit function-select fields into one register -- exactly
 //    the bitfield_utils/ read-modify-write pattern, for real this time.
 //    Function code 001 = output. Bit position within GPFSEL4 for pin 47
 //    is (47 - 40) * 3 = 21.
-//
+
+void led_init()
+{
+    reg(GPFSEL4) = (reg(GPFSEL4) & ~(0b111u << 21)) | (0b001u << 21);
+}
+
+void sleep_block(int inters)
+{
+    for (volatile int i = 0; i < inters; i++)
+        ;
+}
+
 // 4. kernel_main(): call uart_init(), uart_puts() a message containing
 //    the exact text "hello from pi zero" (check_boot.sh looks for this
 //    substring), call led_init(), then loop forever toggling the LED via
@@ -88,11 +135,25 @@ namespace
 //    thousand iterations is a fine, simple choice, same idea as any
 //    other busy-wait delay you've already written.
 
-extern "C" void kernel_main()
+void led_halt()
 {
     while (true)
     {
-
-        // Kernel main loop
+        sleep_block(500000);
+        reg(GPCLR1) = 1u << LED_BIT_IN_BANK;
+        sleep_block(500000);
+        reg(GPSET1) = 1u << LED_BIT_IN_BANK;
     }
+}
+
+extern "C" void kernel_main()
+{
+
+    constexpr const char *text = "hello from pi zero\0";
+
+    uart_init();
+    uart_puts(text);
+
+    led_init();
+    led_halt();
 }
