@@ -2,6 +2,10 @@
 #include <uart.hpp>
 #include <utils.hpp>
 
+extern "C" void signal()
+{
+}
+
 extern "C" void kernel_main()
 {
     constexpr const char *text = "hello from pi zero\0";

@@ -17,14 +17,17 @@ kernel_img: build/kernel.img
 build/kernel.img: build/kernel.elf
 	$(OBJCOPY) build/kernel.elf -O binary $@
 
-build/kernel.elf: build/boot.o build/context.o build/context_cpp.o build/uart.o build/utils.o build/kernel.o linker.ld
-	$(LD) -T linker.ld -o $@ build/boot.o build/context.o build/context_cpp.o build/uart.o build/utils.o build/kernel.o
+build/kernel.elf: build/boot.o build/context.o build/interrupts.o build/context_cpp.o build/uart.o build/utils.o build/kernel.o linker.ld
+	$(LD) -T linker.ld -o $@ build/boot.o build/context.o build/interrupts.o build/context_cpp.o build/uart.o build/utils.o build/kernel.o
 
 build/boot.o: kernel/asm/boot.s | build
 	$(AS) $(MCPU) -c kernel/asm/boot.s -o $@
 
 build/context.o: kernel/asm/context.s | build
 	$(AS) $(MCPU) -c kernel/asm/context.s -o $@
+
+build/interrupts.o: kernel/asm/interrupts.s | build
+	$(AS) $(MCPU) -c kernel/asm/interrupts.s -o $@
 
 build/context_cpp.o: kernel/src/context.cpp kernel/include/context.hpp | build
 	$(CXX) $(CXXFLAGS) -c kernel/src/context.cpp -o $@
