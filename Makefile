@@ -4,29 +4,42 @@ LD := arm-none-eabi-ld
 OBJCOPY := arm-none-eabi-objcopy
 
 MCPU := -mcpu=arm1176jzf-s -marm
-CXXFLAGS := $(MCPU) -ffreestanding -fno-exceptions -fno-rtti -std=c++17 -Wall -Wextra -nostdlib -O2
+INCLUDES := -Ikernel/include
+CXXFLAGS := $(MCPU) -ffreestanding -fno-exceptions -fno-rtti -std=c++17 -Wall -Wextra -nostdlib -O2 $(INCLUDES)
 
-.PHONY: hello_boot_test hello_boot_img clean
- 
-hello_boot_test: build/hello_boot.elf
-	bash hello_boot/check_boot.sh
- 
-hello_boot_img: build/hello_boot.img
+.PHONY: kernel_test kernel_img clean
 
-build/hello_boot.img: build/hello_boot.elf
-	$(OBJCOPY) build/hello_boot.elf -O binary $@
+kernel_test: build/kernel.elf
+	bash check_boot.sh
 
-build/hello_boot.elf: build/hello_boot/boot.o build/hello_boot/kernel.o hello_boot/linker.ld
-	$(LD) -T hello_boot/linker.ld -o $@ build/hello_boot/boot.o build/hello_boot/kernel.o
+kernel_img: build/kernel.img
 
-build/hello_boot/boot.o: hello_boot/boot.s | build/hello_boot
-	$(AS) $(MCPU) -c hello_boot/boot.s -o $@
+build/kernel.img: build/kernel.elf
+	$(OBJCOPY) build/kernel.elf -O binary $@
 
-build/hello_boot/kernel.o: hello_boot/kernel.cpp | build/hello_boot
-	$(CXX) $(CXXFLAGS) -c hello_boot/kernel.cpp -o $@
+build/kernel.elf: build/boot.o build/context.o build/context_cpp.o build/uart.o build/utils.o build/kernel.o linker.ld
+	$(LD) -T linker.ld -o $@ build/boot.o build/context.o build/context_cpp.o build/uart.o build/utils.o build/kernel.o
 
-build/hello_boot:
-	mkdir -p build/hello_boot
+build/boot.o: kernel/asm/boot.s | build
+	$(AS) $(MCPU) -c kernel/asm/boot.s -o $@
+
+build/context.o: kernel/asm/context.s | build
+	$(AS) $(MCPU) -c kernel/asm/context.s -o $@
+
+build/context_cpp.o: kernel/src/context.cpp kernel/include/context.hpp | build
+	$(CXX) $(CXXFLAGS) -c kernel/src/context.cpp -o $@
+
+build/uart.o: kernel/src/uart.cpp kernel/include/uart.hpp kernel/include/peripherals.hpp | build
+	$(CXX) $(CXXFLAGS) -c kernel/src/uart.cpp -o $@
+
+build/utils.o: kernel/src/utils.cpp kernel/include/utils.hpp kernel/include/peripherals.hpp | build
+	$(CXX) $(CXXFLAGS) -c kernel/src/utils.cpp -o $@
+
+build/kernel.o: kernel/kernel.cpp kernel/include/uart.hpp kernel/include/utils.hpp kernel/include/peripherals.hpp | build
+	$(CXX) $(CXXFLAGS) -c kernel/kernel.cpp -o $@
+
+build:
+	mkdir -p build
 
 clean:
 	rm -rf build

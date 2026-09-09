@@ -19,19 +19,24 @@ specific on-disk spec rather than a core OS concept, so an existing
 implementation will be used there rather than writing one from scratch.
 Everything else gets built.
 
-## Format
+## Layout
 
-Same shape as `mock-os`, per exercise directory:
+Unlike `mock-os`'s one-directory-per-exercise shape, this is one ongoing
+kernel build:
 
-- Source files, with given hardware facts (register addresses, verified
-  against the datasheet) separated from TODO logic (the actual
-  read-modify-write/driver/boot code) in comments.
-- `check_boot.sh` (or equivalent) -- a fixed, automated verification
-  script using QEMU where possible. **Don't edit it.**
-- `README.md` -- status, file contract, gotchas found while scaffolding.
-- `lecture.md` -- durable conceptual background, written to be read
-  offline.
-- A `Makefile` target building and checking that exercise.
+- `kernel/kernel.cpp` -- `kernel_main`, the entry point everything else
+  gets called from.
+- `kernel/asm/` -- hand-written ARM assembly (`boot.s`'s `_start`,
+  `context.s`'s register save/restore).
+- `kernel/include/`, `kernel/src/` -- headers and their implementations,
+  one pair per subsystem (`uart.*`, `utils.*`, `context.*`, more as they're
+  added).
+- `kernel/misc/` -- `README.md`/`lecture.md`, durable notes and conceptual
+  background, not part of the build.
+- `check_boot.sh`, `linker.ld`, `Makefile` -- at the repo root, since
+  there's one build now, not one per exercise. `check_boot.sh` is a fixed,
+  automated verification script (QEMU-based where possible). **Don't edit
+  it.**
 
 ## Toolchain
 
@@ -45,11 +50,15 @@ QEMU can verify UART output but has no visible representation of GPIO
 state -- LED-based checks are real-hardware-only by nature, not a gap in
 the test scripts.
 
-## Exercises
+## Status
 
-| # | Directory | Topic | Status |
-|---|-----------|-------|--------|
-| 0 | `hello_boot/` | Boot chain, GPIO LED blink, UART hello world | Scaffolded, not implemented |
+Boot chain, UART hello world, and GPIO LED blink are implemented and
+QEMU-verified (`make kernel_test`). A register save/restore mechanism
+(`context_get`/`context_set`/`context_swap`) exists and compiles/links,
+but is not yet exercised by anything -- next up is the timer interrupt
+path (exception vector table, BCM2835 interrupt controller, System Timer)
+so a real preemptive round-robin scheduler can actually be built and
+tested.
 
 ## Hardware
 
@@ -63,7 +72,7 @@ the test scripts.
 
 ## Flashing
 
-`make <exercise>_img` builds the flat `.img` file. Copy it, alongside the
+`make kernel_img` builds the flat `.img` file. Copy it, alongside the
 downloaded GPU firmware files (`bootcode.bin`, `start.elf`, `fixup.dat`)
 and a `config.txt`, onto an SD card's FAT32 boot partition as
 `kernel.img`. No special tooling needed for the copy itself -- it's an
