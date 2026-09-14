@@ -50,3 +50,5 @@ void context_swap(context &ctx_save, context &ctx_load);
 extern "C" void context_get(context &ctx_reg);
 
 extern "C" void context_set(context &ctx_reg);
+
+extern "C" void fill_new_context(context *ctx, void (*entry)());

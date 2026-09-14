@@ -1,7 +1,7 @@
 .section .text
 
-.global  context_set
-.global  context_get
+.global context_set
+.global context_get
 
 context_set:
     mov ip, R0

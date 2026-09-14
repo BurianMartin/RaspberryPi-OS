@@ -12,6 +12,7 @@ irq_stack_top:
 .global set_irq_stack
 .global disable_irqs
 .global enable_irqs
+.global current_context
 
 enable_irqs:
     mrs r0, CPSR
@@ -25,27 +26,27 @@ disable_irqs:
     msr CPSR_c, r0
     bx lr
 
-irq_handler:                                                                                                                                                                          
+irq_handler:
     sub lr, lr, #4
     mrs r1, SPSR
-                                                                                                                                                                                    
-    ldr ip, =current_task                                                                                                                                                             
+
+    ldr ip, =current_context
     ldr ip, [ip]
-                                                                                                                                                                                    
+          
     stm ip, {r0-r12}
-    add r2, ip, #52                                                                                                                                                                   
+    add r2, ip, #52
     stm r2, {sp, lr}^
     str lr, [ip, #60]
     str r1, [ip, #64]
-                                                                                                                                                                                    
-    bl signal
-                                                                                                                                                                                    
-    ldr ip, =current_task                                                                                                                                                             
+
+    bl IRQ_fire
+          
+    ldr ip, =current_context
     ldr ip, [ip]
-                                                                                                                                                                                    
-    add r2, ip, #52                                                                                                                                                                   
+          
+    add r2, ip, #52
     ldm r2, {sp, lr}^
-    ldr r1, [ip, #64]                                                                                                                                                                 
+    ldr r1, [ip, #64]
     msr SPSR_cxsf, r1
     ldr lr, [ip, #60]
     ldm ip, {r0-r12}
@@ -58,20 +59,32 @@ hang:
     b hang
 
 interrupt_vector_table:
-    b general_handler
-    b general_handler
-    b general_handler
-    b general_handler
-    b general_handler
-    b general_handler
-    b irq_handler
-    b general_handler
+    ldr pc, [pc, #24]
+    ldr pc, [pc, #24]
+    ldr pc, [pc, #24]
+    ldr pc, [pc, #24]
+    ldr pc, [pc, #24]
+    ldr pc, [pc, #24]
+    ldr pc, [pc, #24]
+    ldr pc, [pc, #24]
+    .word general_handler
+    .word general_handler
+    .word general_handler
+    .word general_handler
+    .word general_handler
+    .word general_handler
+    .word irq_handler
+    .word general_handler
 
 set_interrupt_vector_table:
-    ldr r0, =interrupt_vector_table  
-    mov r1, #0x0                     
-    ldm r0, {r2-r9}                  
-    stm r1, {r2-r9}                  
+    ldr r0, =interrupt_vector_table
+    mov r1, #0x0
+    ldm r0, {r2-r9}
+    stm r1, {r2-r9}
+    add r0, r0, #32
+    add r1, r1, #32
+    ldm r0, {r2-r9}
+    stm r1, {r2-r9} 
     bx lr
 
 set_irq_stack:
@@ -81,3 +94,4 @@ set_irq_stack:
     msr CPSR_c, r1
     ldr sp, =irq_stack_top
     msr CPSR_c, r0
+    bx lr
