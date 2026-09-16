@@ -29,8 +29,8 @@ kernel_img: build/kernel.img
 build/kernel.img: build/kernel.elf
 	$(OBJCOPY) build/kernel.elf -O binary $@
 
-build/kernel.elf: build/boot.o build/context.o build/interrupt.o build/context_cpp.o build/uart.o build/utils.o build/interrupts.o build/scheduler.o build/syscalls.o build/kernel.o linker.ld
-	$(LD) -T linker.ld -o $@ build/boot.o build/context.o build/interrupt.o build/context_cpp.o build/uart.o build/utils.o build/interrupts.o build/scheduler.o build/syscalls.o build/kernel.o
+build/kernel.elf: build/boot.o build/context.o build/interrupt.o build/context_cpp.o build/uart.o build/utils.o build/interrupts.o build/scheduler.o build/syscalls.o build/memorymanager.o build/kernel.o linker.ld
+	$(LD) -T linker.ld -o $@ build/boot.o build/context.o build/interrupt.o build/context_cpp.o build/uart.o build/utils.o build/interrupts.o build/scheduler.o build/syscalls.o build/memorymanager.o build/kernel.o
 
 build/boot.o: kernel/asm/boot.s | build
 	$(AS) $(MCPU) -c kernel/asm/boot.s -o $@
@@ -58,6 +58,9 @@ build/scheduler.o: kernel/src/scheduler.cpp kernel/include/scheduler.hpp kernel/
 
 build/syscalls.o: kernel/src/syscalls.cpp kernel/include/syscalls.hpp | build
 	$(CXX) $(CXXFLAGS) -c kernel/src/syscalls.cpp -o $@
+
+build/memorymanager.o: kernel/src/memorymanager.cpp kernel/include/memorymanager.hpp kernel/include/utils.hpp kernel/include/syscalls.hpp | build
+	$(CXX) $(CXXFLAGS) -c kernel/src/memorymanager.cpp -o $@
 
 build/kernel.o: kernel/kernel.cpp kernel/include/uart.hpp kernel/include/utils.hpp kernel/include/peripherals.hpp kernel/include/interrupts.hpp kernel/include/scheduler.hpp | build
 	$(CXX) $(CXXFLAGS) -c kernel/kernel.cpp -o $@

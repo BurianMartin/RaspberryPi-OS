@@ -1,8 +1,9 @@
 #include <cstdint>
 #include <uart.hpp>
 #include <utils.hpp>
-#include <interrupts.hpp>
 #include <scheduler.hpp>
+#include <interrupts.hpp>
+#include <memorymanager.hpp>
 
 namespace
 {
@@ -16,8 +17,7 @@ Scheduler sch;
 
 void demo_task()
 {
-
-    const int us_period = 4500;
+    const int us_period = (INTERRUPT_PERIOD_US * 2) - 250;
 
     uint32_t current_time = reg(TIMER_CLO);
 
@@ -35,7 +35,7 @@ void StartUpTask()
     InterruptController ic;
     ic.EnableIRQs();
 
-    const int us_period = 4500;
+    const int us_period = (INTERRUPT_PERIOD_US * 2) - 250;
 
     uint32_t current_time = reg(TIMER_CLO);
 
@@ -51,11 +51,17 @@ void StartUpTask()
 extern "C" void IRQ_fire()
 {
     reg(TIMER_CS) = 1u << 1;
-    reg(TIMER_C1) = reg(TIMER_CLO) + 10000; // Re-arm the next timer interruptto time now + 10ms
+    reg(TIMER_C1) = reg(TIMER_CLO) + INTERRUPT_PERIOD_US; // Re-arm the next timer interruptto time now + 10ms
+
+    uart_puts("Interrupt fired\n\0");
 
     if (!current_task->done)
     {
         sch.AddTask(*current_task);
+    }
+    else
+    {
+        sch.FreeTask(*current_task);
     }
     sch.Run();
 }
@@ -66,7 +72,8 @@ extern "C" void kernel_main()
 
     constexpr const char *text = "hello from pi zero\n\0";
 
-    sch = Scheduler();
+    MemoryManager mm;
+    sch = Scheduler(mm);
 
     if (!sch.CreateAndAddTask(StartUpTask))
     {
@@ -77,9 +84,9 @@ extern "C" void kernel_main()
     {
         uart_puts("Failed to add demo task\n\0");
     }
+    uart_puts(text);
 
     sch.Run();
-    uart_puts(text);
 
     led_init();
     led_halt();

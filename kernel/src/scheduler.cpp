@@ -3,35 +3,13 @@
 Task *current_task = nullptr;
 context *current_context = nullptr;
 
-uint8_t stacks[SCHEDULER_MAX_TASKS][TASK_STACK_SIZE]; // 8 * 4Kb
-
-bool stack_free_[SCHEDULER_MAX_TASKS];
-
 void Scheduler::Execute(Task &task)
 {
     context_set(task.ctx); // For now just set the normal context, no VPF (Need to add floating point suopport later)
 }
 
-int Scheduler::GetFreeStack()
+Scheduler::Scheduler(MemoryManager &mm) : mm_(&mm)
 {
-    for (size_t i = 0; i < SCHEDULER_MAX_TASKS; i++)
-    {
-        if (stack_free_[i])
-        {
-            return static_cast<int>(i);
-        }
-    }
-
-    return -1;
-}
-
-Scheduler::Scheduler()
-{
-    for (size_t i = 0; i < SCHEDULER_MAX_TASKS; i++)
-    {
-        stack_free_[i] = true;
-        memset(stacks[i], 0, TASK_STACK_SIZE);
-    }
 }
 
 void Scheduler::SetPolicy(SchedulerPolicy policy)
@@ -55,14 +33,20 @@ bool Scheduler::AddTask(Task p)
 
 bool Scheduler::CreateAndAddTask(void (*entry)())
 {
-    int st = GetFreeStack();
-    if (st == -1)
+    uint32_t stack_address = 0;
+    if (mm_)
     {
-        return false;
+        stack_address = mm_->GetPageBaseAddress();
+        if (stack_address == 0)
+        {
+            uart_puts("Failed to allocate stack memory\n\0");
+            return false;
+        }
     }
 
     Task task;
-    task.ctx.sp = reinterpret_cast<uint32_t>(stacks[st]) + TASK_STACK_SIZE;
+
+    task.ctx.sp = stack_address;
     fill_new_context(&task.ctx, entry);
     task.name = "Test Task";
 
@@ -81,6 +65,23 @@ void Scheduler::Run()
     task_count_--;
 
     Execute(*current_task);
+}
+
+void Scheduler::FreeTask(Task &task)
+{
+    if (mm_)
+    {
+        uint32_t stack_address = task.ctx.sp - task.ctx.sp % 4096;
+        mm_->FreePage(stack_address);
+    }
+}
+
+void Scheduler::FreeCurrentTask()
+{
+    if (current_task)
+    {
+        FreeTask(*current_task);
+    }
 }
 
 bool Scheduler::SetCurrentTask(Task *task)

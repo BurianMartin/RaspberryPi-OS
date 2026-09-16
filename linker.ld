@@ -35,8 +35,12 @@ SECTIONS
 { 
     . = 0x8000;
     .text.boot  :   {*(.text.boot)}
+    __init_array_start = .;
+    .init_array : { *(.init_array) }
+    __init_array_end = .;
     .text       :   {*(.text)}
     .rodata     :   {*(.rodata*)}
     .data       :   {*(.data)}
     .bss        :   {*(COMMON) *(.bss)}
+    _end = .;
 }

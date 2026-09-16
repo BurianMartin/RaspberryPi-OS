@@ -15,6 +15,6 @@ namespace
 void InterruptController::EnableIRQs()
 {
     reg(ENABLE_IRQS_1) = 1u << 1;
-    reg(TIMER_C1) = reg(TIMER_CLO) + 10000; // Arm the next timer interruptto time now + 10ms
+    reg(TIMER_C1) = reg(TIMER_CLO) + INTERRUPT_PERIOD_US; // Arm the next timer interruptto time now + 10ms
     enable_irqs();
 }

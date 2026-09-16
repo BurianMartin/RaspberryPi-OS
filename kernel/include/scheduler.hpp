@@ -5,6 +5,7 @@
 #include <utils.hpp>
 #include <context.hpp>
 #include <syscalls.hpp>
+#include <memorymanager.hpp>
 
 enum class SchedulerPolicy : uint8_t
 {
@@ -33,12 +34,14 @@ private:
     uint32_t head_ = 0;
     uint32_t tail_ = 0;
 
+    MemoryManager *mm_;
+
     void Execute(Task &task);
 
-    int GetFreeStack();
-
 public:
-    Scheduler();
+    Scheduler(MemoryManager &mm);
+
+    Scheduler() = default;
     ~Scheduler() = default;
 
     void SetPolicy(SchedulerPolicy policy);
@@ -52,4 +55,8 @@ public:
     void Run();
 
     void DeleteCurrentTask();
+
+    void FreeTask(Task &task);
+
+    void FreeCurrentTask();
 };

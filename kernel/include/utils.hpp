@@ -10,6 +10,12 @@ constexpr unsigned LED_GPIO = 47;
 constexpr unsigned LED_BIT_IN_BANK = LED_GPIO - 32;
 constexpr uint32_t SCHEDULER_MAX_TASKS = 8;
 constexpr uint32_t TASK_STACK_SIZE = 4 * 1024; // 4Kb
+constexpr uint32_t INTERRUPT_PERIOD_US = 200000;
+
+extern "C" uint8_t _end[]; // Where the OS memory end and user allocatable memory begins
+const uint32_t USER_MEMORY_BASE = reinterpret_cast<uint32_t>(_end);
+const uint32_t USER_MEMORY_END = 0x20000000;
+const uint32_t USER_PAGE_BASE = (USER_MEMORY_BASE / 4096) + 1;
 
 void led_init();
 
