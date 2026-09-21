@@ -41,6 +41,8 @@ SECTIONS
     .text       :   {*(.text)}
     .rodata     :   {*(.rodata*)}
     .data       :   {*(.data)}
+    __bss_start__ = .;
     .bss        :   {*(COMMON) *(.bss)}
+    __bss_end__ = .;
     _end = .;
 }

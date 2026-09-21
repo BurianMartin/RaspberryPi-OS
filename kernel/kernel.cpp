@@ -29,7 +29,7 @@ void demo_task()
     {
         while (reg(TIMER_CLO) < current_time + us_period)
             ;
-        reg(GPSET1) = 1u << LED_BIT_IN_BANK;
+        reg(GPCLR1) = 1u << LED_BIT_IN_BANK; // active-low LED (per bcm2708-rpi-zero-w.dtb): clear = on
         uart_puts("LED on\n\0");
         current_time = reg(TIMER_CLO);
     }
@@ -49,7 +49,7 @@ void StartUpTask()
     {
         while (reg(TIMER_CLO) < current_time + us_period)
             ;
-        reg(GPCLR1) = 1u << LED_BIT_IN_BANK;
+        reg(GPSET1) = 1u << LED_BIT_IN_BANK; // active-low LED: set = off
         uart_puts("LED off\n\0");
         current_time = reg(TIMER_CLO);
     }
@@ -57,7 +57,7 @@ void StartUpTask()
 
 extern "C" void IRQ_fire()
 {
-    reg(TIMER_CS) = 1u << 1;
+    reg(TIMER_CS) = reg(TIMER_CS);
     reg(TIMER_C1) = reg(TIMER_CLO) + INTERRUPT_PERIOD_US; // Re-arm the next timer interruptto time now + 10ms
 
     uart_puts("Interrupt fired\n\0");

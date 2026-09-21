@@ -5,6 +5,55 @@ what's a deliberate placeholder, what's an open question, and what's next.
 Update this as things change — it's meant to stay current, not be a
 one-time snapshot.
 
+## Done and verified — real hardware (Pi Zero W)
+
+Phase 1 (first real-hardware pass) is complete: `kernel.img` boots on the
+actual Pi Zero W, both tasks run and hand off the LED, and the system
+reaches clean shutdown (`led_halt()`) after both finish — the same
+behavior confirmed in QEMU, now confirmed for real. Three real bugs only
+showed up on hardware, invisible in QEMU the whole time it was being
+built:
+
+- **`_start` has to be the physically first thing in `boot.s`.** QEMU's
+  `-kernel` loads the ELF and jumps to whatever address `ENTRY(_start)`
+  says, regardless of where that code actually sits in the file. Real
+  firmware loads the flat `kernel.img` and jumps straight to `0x8000` —
+  i.e. to file offset 0, no matter what's there. `init_array_calls` used
+  to sit before `_start` in the file; on real hardware that meant it ran
+  *first*, with the stack pointer not even set yet. Every single QEMU run
+  up to that point had been silently masking this.
+- **`.bss` was never being zeroed anywhere.** QEMU zero-initializes guest
+  RAM by default; real SDRAM at power-on is not guaranteed to be zero.
+  `boot.s` now explicitly zeroes `__bss_start__`..`__bss_end__` as the
+  very first thing `_start` does, before anything else runs.
+- **The ACT LED is wired active-low on this board** (confirmed directly
+  from `bcm2708-rpi-zero-w.dtb`'s `leds/led-act` node: `gpios = <&gpio 47
+  1>`, flag `1` = `GPIO_ACTIVE_LOW`) — `GPCLR1`/`GPSET1` were swapped in
+  `demo_task`/`StartUpTask` to match. QEMU's `raspi0` model doesn't model
+  the LED at all, so this was invisible there by construction.
+- **The System Timer `CS` acknowledge** was changed from a hardcoded bit
+  (`reg(TIMER_CS) = 1u << 1`) to a write-back (`reg(TIMER_CS) =
+  reg(TIMER_CS)`) — acks whatever's actually pending instead of assuming a
+  bit position the datasheet was never fully trustworthy about. This
+  resolves the open question below.
+
+**The actual root cause of a very long, confusing debugging session**
+turned out to be outside the repo entirely: `config.txt` on the SD card
+had `disable_commandline_tags=1` set (added while chasing an unrelated
+`os_check` tip). That option silently changes the firmware's kernel load
+address from `0x8000` to `0x0` — which the linker script has no way to
+know about, so every internal symbol reference resolved `0x8000` bytes
+too high. The kernel would run its first few instructions correctly, then
+self-corrupt the moment it tried to relocate the exception vector table
+(written to `0x0`, which — at the wrong load address — was also where the
+kernel's own running code physically was). This produced a
+content-independent "runs briefly, corrupts itself, dies" pattern that
+looked exactly like a code bug and consumed most of a day chasing dozens
+of false leads before the actual cause was found. **`config.txt` must not
+have `disable_commandline_tags=1` set, ever, for this kernel.** Worth
+remembering since it lives on the SD card, not in git, and is trivial to
+silently reintroduce.
+
 ## Done and verified (in QEMU, `qemu-system-arm -M raspi0`)
 
 - **Boot chain**: `_start` (`boot.s`) sets up the boot stack, copies the
@@ -91,41 +140,42 @@ one-time snapshot.
 
 ## Open, unresolved
 
-- **The System Timer `CS` acknowledge bit** (`reg(TIMER_CS) = 1u << 1`)
-  is a QEMU-verified-working guess, not a datasheet-confirmed fact —
-  documentation was inconsistent and QEMU's own `raspi0` model doesn't
-  faithfully reflect the real match/ack behavior. Needs verification on
-  real hardware; if ticks stop after one, or fire continuously with no
-  gap, try the other bit-position hypothesis first.
 - **IRQ stack (`sp_irq`, 4KB) may be slowly leaking.** `IRQ_fire` calls
   `sch.Run()`, which can end in `context_set` — a one-way jump
   (`pop {pc}`) that never returns. That means the call chain
   `irq_handler → IRQ_fire → Run → Execute → context_set` never unwinds:
   each tick's nested call frames stay abandoned on `sp_irq` instead of
-  being popped. Hasn't caused an observed crash in multi-second test runs,
-  but the mechanism is real and worth checking directly (log `sp` inside
+  being popped. Hasn't caused an observed crash in the real-hardware run
+  described above (tens of ticks, both tasks completing), but the
+  mechanism is real and worth checking directly (log `sp` inside
   `irq_handler` over a much longer run) before trusting long-running
   behavior.
-- **`Task::done` is never set to `true` anywhere.** `IRQ_fire` already
-  branches on it (`if (!current_task->done) ... else sch.FreeTask(...)`),
-  and `FreeTask`/`FreeCurrentTask` are written and should be correct, but
-  since nothing in the codebase ever actually marks a task finished, that
-  whole path has never been exercised end-to-end. Worth deliberately
-  triggering it once (e.g. a task that loops N times then sets its own
-  `done`) to confirm the free path really works, not just that it compiles.
 - **VFP/floating-point context is unintegrated.** The `VFP` struct exists
   in `context.hpp` but `Scheduler::Execute` explicitly skips it
   (`context_set(task.ctx); // no VPF`). Any task that touches floating
   point will corrupt another task's FP state silently.
-- **Everything above is QEMU-only.** No real-hardware testing has
-  happened yet — flashing `kernel.img` to the actual Pi Zero W and
-  watching the LED/UART/scheduler behavior for real is still outstanding,
-  and is specifically where the `CS`-ack uncertainty needs resolving.
+- **`IRQ_fire` assumes it's always a timer tick from channel 1, and
+  nothing else.** It unconditionally does the scheduler-tick dance
+  (`AddTask`/`FreeTask`/`Run()`) and acks with `reg(TIMER_CS) =
+  reg(TIMER_CS)` — correct today because channel 1 is the only System
+  Timer compare ever armed, and the timer is the only interrupt source
+  ever unmasked at the controller (`InterruptController::EnableIRQs()`).
+  The moment either changes — a second timer channel for something
+  unrelated to scheduling, or any other interrupt source (GPIO, UART,
+  etc.) gets enabled — `irq_handler` routes *everything* through this
+  same path, and `IRQ_fire` will misidentify it as a scheduler tick and
+  only ever ack `TIMER_CS`. Before adding a second interrupt source of any
+  kind, `irq_handler`/`IRQ_fire` needs an actual dispatch mechanism —
+  read the interrupt controller's pending register(s)
+  (`IRQ_BASIC_PENDING`/`IRQ_PENDING_1`/`IRQ_PENDING_2`), and for each bit
+  that's set, call a per-source handler (a switch/lookup on which bit it
+  is, one handler function per interrupt source) instead of one function
+  that assumes it already knows the cause. More than one source can be
+  pending at once, so this needs to check every relevant bit each time,
+  not stop at the first match.
 
 ## Next goal candidates (not yet prioritized against each other)
 
-- Actually exercise the `Task::done` / `FreeTask` path with a task that
-  deliberately finishes, to confirm task teardown genuinely works.
 - Verify/fix the IRQ-stack leak — either by making `Run()`'s tail call
   not descend into a one-way jump from inside `IRQ_fire`, or by confirming
   the leak genuinely doesn't matter within a bounded tick count.
@@ -142,9 +192,9 @@ one-time snapshot.
   tasks. Distinct from the calibrated busy-wait delays already in place,
   which don't yield the CPU to anyone else.
 - VFP save/restore in the context struct and `context_set`/`irq_handler`.
-- First real-hardware test pass (LED, UART, then the full interrupt +
-  scheduler chain) — this is the one thing QEMU fundamentally can't
-  substitute for, especially for the `CS`-ack question above.
+- Real UART hardware (a USB-to-TTL adapter on GPIO14/15) — the LED-only
+  signal used for Phase 1 is exhausted as a debugging tool; the next round
+  of real-hardware work (syscalls, MMU) will need actual trace visibility.
 - Longer-term, explicitly deferred by design, not forgotten: virtual
   memory/MMU (isolation between tasks — not needed for a working
   scheduler, but a real planned feature, and a natural next layer once a

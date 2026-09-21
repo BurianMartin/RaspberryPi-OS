@@ -1,0 +1,14 @@
+start_file=start.elf
+fixup_file=fixup.dat
+
+kernel=kernel.img
+
+# How much memory in MB to assign to the GPU on Pi models having
+# 256, 512 or 1024 MB total memory
+gpu_mem_256=100
+gpu_mem_512=100
+gpu_mem_1024=100
+
+# Enable UART0 for serial console on ttyAMA0
+dtoverlay=miniuart-bt
+os_check=0
