@@ -18,3 +18,8 @@ void InterruptController::EnableIRQs()
     reg(TIMER_C1) = reg(TIMER_CLO) + INTERRUPT_PERIOD_US; // Arm the next timer interruptto time now + 10ms
     enable_irqs();
 }
+
+void InterruptController::DisableIRQs()
+{
+    disable_irqs();
+}

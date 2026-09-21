@@ -10,5 +10,6 @@ public:
     InterruptController() = default;
     ~InterruptController() = default;
 
-    void EnableIRQs();
+    static void EnableIRQs();
+    static void DisableIRQs();
 };

@@ -24,6 +24,8 @@ struct Task
 extern Task *current_task;
 extern context *current_context;
 
+void task_finished();
+
 class Scheduler
 {
 private:
@@ -36,10 +38,14 @@ private:
 
     MemoryManager *mm_;
 
+    context *kernel_end_context = nullptr;
+
+    bool kernel_end = false;
+
     void Execute(Task &task);
 
 public:
-    Scheduler(MemoryManager &mm);
+    Scheduler(MemoryManager &mm, context &kernel_end_context);
 
     Scheduler() = default;
     ~Scheduler() = default;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <utils.hpp>
 
 constexpr uint32_t USER_REG_COUNT = 16;
 
@@ -42,8 +43,6 @@ struct VFP
     uint32_t r12;
     uint32_t FPSCR;
 };
-
-void irq_handle();
 
 void context_swap(context &ctx_save, context &ctx_load);
 

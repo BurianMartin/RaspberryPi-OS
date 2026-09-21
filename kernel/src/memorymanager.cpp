@@ -15,7 +15,7 @@ MemoryManager::MemoryManager()
 
 uint32_t MemoryManager::GetPageBaseAddress()
 {
-    for (int index = USER_PAGE_BASE; index < 4096; index++)
+    for (int index = USER_PAGE_BASE / 32; index < 4096; index++)
     {
         if (page_free_[index] > 0)
         {

@@ -28,12 +28,12 @@ disable_irqs:
 
 irq_handler:
     sub lr, lr, #4
-    mrs r1, SPSR
 
     ldr ip, =current_context
     ldr ip, [ip]
-          
+
     stm ip, {r0-r12}
+    mrs r1, SPSR
     add r2, ip, #52
     stm r2, {sp, lr}^
     str lr, [ip, #60]

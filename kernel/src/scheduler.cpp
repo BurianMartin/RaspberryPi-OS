@@ -8,7 +8,7 @@ void Scheduler::Execute(Task &task)
     context_set(task.ctx); // For now just set the normal context, no VPF (Need to add floating point suopport later)
 }
 
-Scheduler::Scheduler(MemoryManager &mm) : mm_(&mm)
+Scheduler::Scheduler(MemoryManager &mm, context &kernel_end_context) : mm_(&mm), kernel_end_context(&kernel_end_context)
 {
 }
 
@@ -58,6 +58,7 @@ void Scheduler::Run()
     if (!SetCurrentTask(&tasks_[head_]))
     {
         uart_puts("Failed to set current task\n\0");
+        context_set(*kernel_end_context);
         return;
     }
 
@@ -93,4 +94,11 @@ bool Scheduler::SetCurrentTask(Task *task)
         return true;
     }
     return false;
+}
+
+void task_finished()
+{
+    current_task->done = true;
+    while (true)
+        ;
 }

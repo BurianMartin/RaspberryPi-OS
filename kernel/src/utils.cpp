@@ -1,5 +1,7 @@
 #include <utils.hpp>
 
+uint32_t TASK_FINISH_RETURN_ADDRESS = 0;
+
 namespace
 {
     inline volatile uint32_t &reg(uint32_t addr)
