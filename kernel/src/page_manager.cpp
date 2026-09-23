@@ -1,8 +1,8 @@
-#include <memorymanager.hpp>
+#include <page_manager.hpp>
 
 uint32_t page_free_[4096];
 
-MemoryManager::MemoryManager()
+PageManager::PageManager()
 {
     memset(page_free_, ~0u, sizeof(page_free_));
 
@@ -13,7 +13,7 @@ MemoryManager::MemoryManager()
            static_cast<uint8_t>(0xFF << (USER_PAGE_BASE % 8)), 1);
 }
 
-uint32_t MemoryManager::GetPageBaseAddress()
+uint32_t PageManager::AllocatePage()
 {
     for (int index = USER_PAGE_BASE / 32; index < 4096; index++)
     {
@@ -33,17 +33,22 @@ uint32_t MemoryManager::GetPageBaseAddress()
     return 0;
 }
 
-void MemoryManager::UsePage(uint32_t page_address)
+uint32_t PageManager::AllocatePagesConseq(uint32_t)
 {
-    uint32_t index = (page_address / 4096);
+    return 0;
+}
+
+void PageManager::UsePage(uint32_t page_address)
+{
+    uint32_t index = (page_address / PAGE_SIZE);
     uint32_t bit_pos = index % 32;
     index = index / 32;
     page_free_[index] &= ~(1u << bit_pos);
 }
 
-void MemoryManager::FreePage(uint32_t page_address)
+void PageManager::FreePage(uint32_t page_address)
 {
-    uint32_t index = (page_address / 4096);
+    uint32_t index = (page_address / PAGE_SIZE);
     uint32_t bit_pos = index % 32;
     index = index / 32;
     page_free_[index] |= (1u << bit_pos);

@@ -13,14 +13,16 @@ struct Page
 
 extern uint32_t page_free_[4096];
 
-class MemoryManager
+class PageManager
 {
 private:
 public:
-    MemoryManager();
-    ~MemoryManager() = default;
+    PageManager();
+    ~PageManager() = default;
 
-    uint32_t GetPageBaseAddress();
+    uint32_t AllocatePage();
+
+    uint32_t AllocatePagesConseq(uint32_t count);
 
     void UsePage(uint32_t page_address);
     void FreePage(uint32_t page_address);

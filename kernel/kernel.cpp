@@ -4,7 +4,7 @@
 #include <context.hpp>
 #include <scheduler.hpp>
 #include <interrupts.hpp>
-#include <memorymanager.hpp>
+#include <page_manager.hpp>
 
 namespace
 {
@@ -14,7 +14,6 @@ namespace
     }
 }
 
-Scheduler sch;
 context kernel_end_context;
 
 void demo_task()
@@ -55,24 +54,6 @@ void StartUpTask()
     }
 }
 
-extern "C" void IRQ_fire()
-{
-    reg(TIMER_CS) = reg(TIMER_CS);
-    reg(TIMER_C1) = reg(TIMER_CLO) + INTERRUPT_PERIOD_US; // Re-arm the next timer interruptto time now + 10ms
-
-    uart_puts("Interrupt fired\n\0");
-
-    if (!current_task->done)
-    {
-        sch.AddTask(*current_task);
-    }
-    else
-    {
-        sch.FreeTask(*current_task);
-    }
-    sch.Run();
-}
-
 extern "C" void kernel_main()
 {
     TASK_FINISH_RETURN_ADDRESS = reinterpret_cast<uint32_t>(task_finished);
@@ -84,26 +65,25 @@ extern "C" void kernel_main()
 
     constexpr const char *text = "hello from pi zero\n\0";
 
-    MemoryManager mm;
-    sch = Scheduler(mm, kernel_end_context);
+    PageManager mm;
+    scheduler = Scheduler(mm, kernel_end_context);
 
-    if (!sch.CreateAndAddTask(StartUpTask))
+    if (!scheduler.CreateAndAddTask(StartUpTask))
     {
         uart_puts("Failed to add startup task\n\0");
     }
 
-    if (!sch.CreateAndAddTask(demo_task))
+    if (!scheduler.CreateAndAddTask(demo_task))
     {
         uart_puts("Failed to add demo task\n\0");
     }
     uart_puts(text);
 
     context_get(kernel_end_context);
-    uart_puts("Kernel finish context set\n\0");
     if (!bootstrapped)
     {
         bootstrapped = true;
-        sch.Run();
+        scheduler.Run();
     }
     else
     {

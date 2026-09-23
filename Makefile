@@ -29,8 +29,8 @@ kernel_img: build/kernel.img
 build/kernel.img: build/kernel.elf
 	$(OBJCOPY) build/kernel.elf -O binary $@
 
-build/kernel.elf: build/boot.o build/context.o build/interrupt.o build/context_cpp.o build/uart.o build/utils.o build/interrupts.o build/scheduler.o build/syscalls.o build/memorymanager.o build/kernel.o linker.ld
-	$(LD) -T linker.ld -o $@ build/boot.o build/context.o build/interrupt.o build/context_cpp.o build/uart.o build/utils.o build/interrupts.o build/scheduler.o build/syscalls.o build/memorymanager.o build/kernel.o
+build/kernel.elf: build/boot.o build/context.o build/interrupt.o build/context_cpp.o build/uart.o build/utils.o build/interrupts.o build/scheduler.o build/syscalls.o build/syscalls_asm.o build/handlers.o build/page_manager.o build/task_mem_manager.o build/kernel.o linker.ld
+	$(LD) -T linker.ld -o $@ build/boot.o build/context.o build/interrupt.o build/context_cpp.o build/uart.o build/utils.o build/interrupts.o build/scheduler.o build/syscalls.o build/syscalls_asm.o build/handlers.o build/page_manager.o build/task_mem_manager.o build/kernel.o
 
 build/boot.o: kernel/asm/boot.s | build
 	$(AS) $(MCPU) -c kernel/asm/boot.s -o $@
@@ -40,6 +40,9 @@ build/context.o: kernel/asm/context.s | build
 
 build/interrupt.o: kernel/asm/interrupt.s | build
 	$(AS) $(MCPU) -c kernel/asm/interrupt.s -o $@
+
+build/syscalls_asm.o: kernel/asm/syscalls.S kernel/include/syscall_ids.h | build
+	$(AS) $(MCPU) $(INCLUDES) -c kernel/asm/syscalls.S -o $@
 
 build/context_cpp.o: kernel/src/context.cpp kernel/include/context.hpp | build
 	$(CXX) $(CXXFLAGS) -c kernel/src/context.cpp -o $@
@@ -59,8 +62,14 @@ build/scheduler.o: kernel/src/scheduler.cpp kernel/include/scheduler.hpp kernel/
 build/syscalls.o: kernel/src/syscalls.cpp kernel/include/syscalls.hpp | build
 	$(CXX) $(CXXFLAGS) -c kernel/src/syscalls.cpp -o $@
 
-build/memorymanager.o: kernel/src/memorymanager.cpp kernel/include/memorymanager.hpp kernel/include/utils.hpp kernel/include/syscalls.hpp | build
-	$(CXX) $(CXXFLAGS) -c kernel/src/memorymanager.cpp -o $@
+build/page_manager.o: kernel/src/page_manager.cpp kernel/include/page_manager.hpp kernel/include/utils.hpp kernel/include/syscalls.hpp | build
+	$(CXX) $(CXXFLAGS) -c kernel/src/page_manager.cpp -o $@
+
+build/task_mem_manager.o: kernel/src/task_mem_manager.cpp kernel/include/task_mem_manager.hpp kernel/include/utils.hpp kernel/include/scheduler.hpp kernel/include/page_manager.hpp | build
+	$(CXX) $(CXXFLAGS) -c kernel/src/task_mem_manager.cpp -o $@
+
+build/handlers.o: kernel/src/handlers.cpp kernel/include/handlers.hpp kernel/include/uart.hpp kernel/include/utils.hpp kernel/include/scheduler.hpp | build
+	$(CXX) $(CXXFLAGS) -c kernel/src/handlers.cpp -o $@
 
 build/kernel.o: kernel/kernel.cpp kernel/include/uart.hpp kernel/include/utils.hpp kernel/include/peripherals.hpp kernel/include/interrupts.hpp kernel/include/scheduler.hpp | build
 	$(CXX) $(CXXFLAGS) -c kernel/kernel.cpp -o $@

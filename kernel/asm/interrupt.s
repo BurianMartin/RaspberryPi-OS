@@ -26,7 +26,7 @@ disable_irqs:
     msr CPSR_c, r0
     bx lr
 
-irq_handler:
+irq_handle:
     sub lr, lr, #4
 
     ldr ip, =current_context
@@ -39,7 +39,31 @@ irq_handler:
     str lr, [ip, #60]
     str r1, [ip, #64]
 
-    bl IRQ_fire
+    bl irq_handler
+          
+    ldr ip, =current_context
+    ldr ip, [ip]
+          
+    add r2, ip, #52
+    ldm r2, {sp, lr}^
+    ldr r1, [ip, #64]
+    msr SPSR_cxsf, r1
+    ldr lr, [ip, #60]
+    ldm ip, {r0-r12}
+    movs pc, lr
+
+svc_handle:
+    ldr ip, =current_context
+    ldr ip, [ip]
+
+    stm ip, {r0-r12}
+    mrs r1, SPSR
+    add r2, ip, #52
+    stm r2, {sp, lr}^
+    str lr, [ip, #60]
+    str r1, [ip, #64]
+
+    bl svc_handler
           
     ldr ip, =current_context
     ldr ip, [ip]
@@ -69,11 +93,11 @@ interrupt_vector_table:
     ldr pc, [pc, #24]
     .word general_handler
     .word general_handler
+    .word svc_handle
     .word general_handler
     .word general_handler
     .word general_handler
-    .word general_handler
-    .word irq_handler
+    .word irq_handle
     .word general_handler
 
 set_interrupt_vector_table:

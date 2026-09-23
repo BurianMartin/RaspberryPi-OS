@@ -2,13 +2,14 @@
 
 Task *current_task = nullptr;
 context *current_context = nullptr;
+Scheduler scheduler;
 
 void Scheduler::Execute(Task &task)
 {
     context_set(task.ctx); // For now just set the normal context, no VPF (Need to add floating point suopport later)
 }
 
-Scheduler::Scheduler(MemoryManager &mm, context &kernel_end_context) : mm_(&mm), kernel_end_context(&kernel_end_context)
+Scheduler::Scheduler(PageManager &mm, context &kernel_end_context) : mm_(&mm), kernel_end_context(&kernel_end_context)
 {
 }
 
@@ -33,22 +34,20 @@ bool Scheduler::AddTask(Task p)
 
 bool Scheduler::CreateAndAddTask(void (*entry)())
 {
-    uint32_t stack_address = 0;
+    uint32_t stack_address = 0, heap_address = 0;
     if (mm_)
     {
-        stack_address = mm_->GetPageBaseAddress();
-        if (stack_address == 0)
+        stack_address = mm_->AllocatePage();
+        heap_address = mm_->AllocatePage();
+        if (stack_address == 0 || heap_address == 0)
         {
             uart_puts("Failed to allocate stack memory\n\0");
             return false;
         }
     }
 
-    Task task;
-
-    task.ctx.sp = stack_address;
+    Task task("Test Task", stack_address, heap_address, mm_);
     fill_new_context(&task.ctx, entry);
-    task.name = "Test Task";
 
     return AddTask(task);
 }
@@ -72,7 +71,7 @@ void Scheduler::FreeTask(Task &task)
 {
     if (mm_)
     {
-        uint32_t stack_address = task.ctx.sp - task.ctx.sp % 4096;
+        uint32_t stack_address = task.ctx.sp - task.ctx.sp % PAGE_SIZE;
         mm_->FreePage(stack_address);
     }
 }
