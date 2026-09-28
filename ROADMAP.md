@@ -1,14 +1,24 @@
 # Roadmap
 
-The scope of this project, defined once so it stays a real target rather than
-drifting: **a real, POSIX(-ish) operating system for the Raspberry Pi Zero W —
-something you flash to an SD card, boot on real hardware, and actually use.**
-SSH-able, a walkable filesystem, a shell, real ported software. Not a
-showcase kernel — a full OS.
+**Scope shrink, 2026-09-28**: this stopped being the main project. Active
+hardware/embedded work moved to a new, separate project —
+[`wireless-debug-box`](https://github.com/BurianMartin/wireless-debug-box), a
+battery-powered wireless flasher/debugger for ESP32 and (later) Arm targets,
+prototyped on a Pico 2 WH. That project has actual purpose and a market;
+this one was a from-scratch learning exercise that had grown into an
+open-ended "build a full POSIX OS" scope that would never realistically
+finish alongside it.
 
-This is a big, multi-phase project, worked on solo. It lives as **one
-monorepo** (this repository), not split across many git repos — see
-"Project structure" below for why, and when that might change.
+This repo now targets a much smaller, genuinely finishable goal: **Phase
+0-2 only** — a working preemptive kernel on the Pi Zero W with a real
+syscall mechanism and dynamic memory, hardware-verified. Phases 3 and
+onward are kept below, unchanged, as a record of the original plan and a
+possible future extension if this ever becomes active again — not a
+commitment, not deleted.
+
+This lives as **one monorepo** (this repository), not split across many
+git repos — see "Project structure" below for why, and when that might
+change.
 
 For day-to-day state ("what's actually built and verified right now"), see
 `PROGRESS.md`. This file is the opposite timescale: the shape of the whole
@@ -54,12 +64,22 @@ phases are built on an unverified foundation.
 
 ## Phase 2 — Kernel fundamentals
 
+This is the current finish line for the project as scoped now.
+
 - [ ] General-purpose heap (`operator new`/`delete`) on top of the page
       allocator — inline block headers, not a port of `mock-os`'s allocator
 - [ ] Real syscall mechanism (SVC/software interrupt), a new vector slot
+      (in progress — see `MALLOC_SLEEP_CHECKLIST.md`)
 - [ ] Task exit/cleanup actually exercised (`Task::done` currently unset
       anywhere — see `PROGRESS.md`)
 - [ ] VFP/floating-point context save and restore
+
+---
+
+**Everything below this line is shelved, not active scope.** Kept as
+written for the record and as a possible future extension, not something
+being worked toward right now. Don't read "Phase 3" as "next" — there is
+no next, unless this project's scope grows again on purpose.
 
 ## Phase 3 — Memory protection
 
@@ -136,7 +156,9 @@ userland" early, even minimally, rather than only at the very end.
 
 ## Not on the critical path, not forgotten
 
-- Dual-core work on a Pico, once one is acquired — a separate board,
-  a separate thread of work, doesn't block anything above.
 - Repo splitting (WiFi driver, a reusable libc port, etc.) — revisit only
-  when a concrete, separable reason actually appears.
+  when a concrete, separable reason actually appears. Moot anyway while
+  scope is capped at Phase 2.
+- Dual-core/Pico work happened, just not here — see the scope-shrink note
+  at the top: it became `wireless-debug-box`, a separate project on
+  different hardware (RP2350/Pico 2 WH), not a phase of this one.
